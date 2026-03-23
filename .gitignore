@@ -1,3 +1,8 @@
+src/heavyedge_features/samples/*
+!src/heavyedge_features/samples/*.py
+
+.vscode
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
