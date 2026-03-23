@@ -70,3 +70,6 @@ doctest_optionflags = [
     "ELLIPSIS",
 ]
 addopts = "--ignore=doc --doctest-modules --import-mode=importlib"
+
+[project.entry-points."heavyedge.commands"]
+"Feature quantification" = "heavyedge_features.plugins.features"

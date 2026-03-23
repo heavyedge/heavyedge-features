@@ -58,12 +58,16 @@ def global_deviation(
     >>> [v.shape for v in global_deviation(profiles, [1], model, batch_size=50)]
     [(50,), (25,)]
     """
+    N, _ = profiles.shape()
     prob_gen = classify_predict(
-        model, profiles, normalize=normalize, batch_size=batch_size, logger=logger
+        model, profiles, normalize=normalize, batch_size=batch_size
     )
+    count = 0
     for probabilities in prob_gen:
         values = []
         for p in probabilities:
             value, _ = signed_iproj(p, target_indices)
             values.append(value)
         yield np.array(values)
+        count += len(probabilities)
+        logger(f"{count}/{N}")
