@@ -15,7 +15,7 @@ class GlobalFeaturesCommand(Command):
             self.name,
             help="Quantify global shape feature score using classification model",
             epilog=(
-                "Output 'phi' is the signed distance to the "
+                "Output field 'phi' is the signed distance to the "
                 "nearest admissible class in the probability simplex."
             ),
         )
@@ -33,7 +33,7 @@ class GlobalFeaturesCommand(Command):
             "--target-indices",
             type=int,
             nargs="+",
-            help="List of indices of admissible classes.",
+            help="List of indices of admissible classes from trained labels.",
         )
         parser.add_argument(
             "--normalized",
@@ -91,3 +91,67 @@ class GlobalFeaturesCommand(Command):
                     writer.writerow([value])
 
         self.logger.info(f"Saved {args.output}.")
+
+
+@register_command("features-local", "Quantify local shape features")
+class LocalFeaturesCommand(Command):
+    def add_parser(self, main_parser):
+        parser = main_parser.add_parser(
+            self.name,
+            help="Quantify local shape features",
+            epilog=(
+                "Output field 'H' is the apparent edge superelevation. "
+                "Output field 'b' is the edge width."
+            ),
+        )
+        parser.add_argument(
+            "profiles",
+            type=pathlib.Path,
+            help="h5 file path to profile data in 'ProfileData' structure.",
+        )
+        parser.add_argument(
+            "model",
+            type=pathlib.Path,
+            help="Path to trained classification model.",
+        )
+        parser.add_argument(
+            "h_w",
+            type=pathlib.Path,
+            help="Path to npy file containing wet thickness.",
+        )
+        parser.add_config_argument(
+            "--type1-indices",
+            type=int,
+            nargs="+",
+            help="List of indices of Type 1 classes from trained labels.",
+        )
+        parser.add_config_argument(
+            "--type2-indices",
+            type=int,
+            nargs="+",
+            help="List of indices of Type 2 classes from trained labels.",
+        )
+        parser.add_config_argument(
+            "--type3-indices",
+            type=int,
+            nargs="+",
+            help="List of indices of Type 3 classes from trained labels.",
+        )
+        parser.add_argument(
+            "--batch-size",
+            type=int,
+            default=None,
+            help=(
+                "Batch size to load data. "
+                "If not passed, all data are loaded at once."
+            ),
+        )
+        parser.add_argument(
+            "-o",
+            "--output",
+            type=pathlib.Path,
+            help="Path to output csv file",
+        )
+
+    def run(self, args):
+        raise NotImplementedError
