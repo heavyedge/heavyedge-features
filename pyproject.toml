@@ -32,6 +32,7 @@ classifiers = [
 dependencies = [
     "heavyedge",
     "heavyedge-classify>=1.0.1,<2.0.0",
+    "cvxpy",
 ]
 
 [project.urls]
