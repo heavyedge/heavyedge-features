@@ -17,6 +17,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.viewcode",
     "numpydoc",
+    "matplotlib.sphinxext.plot_directive",
 ]
 
 autodoc_member_order = "bysource"
