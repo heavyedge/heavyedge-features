@@ -65,7 +65,7 @@ class GlobalFeaturesCommand(Command):
                 reader = csv.reader(f)
                 # Burn first row as header
                 next(reader)
-                soft_labels = np.array([row[0] for row in reader])
+                soft_labels = np.array([row for row in reader], dtype=float)
         else:
             if label_format != "npy":
                 self.logger.warning(
@@ -178,7 +178,7 @@ class LocalFeaturesCommand(Command):
                 reader = csv.reader(f)
                 # Burn first row as header
                 next(reader)
-                soft_labels = np.array([row[0] for row in reader])
+                soft_labels = np.array([row for row in reader], dtype=float)
         else:
             if label_format != "npy":
                 self.logger.warning(
