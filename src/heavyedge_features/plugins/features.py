@@ -2,7 +2,6 @@
 
 import pathlib
 
-from heavyedge import ProfileData
 from heavyedge.cli.command import Command, register_command
 
 PLUGIN_ORDER = 2.0
@@ -15,19 +14,17 @@ class GlobalFeaturesCommand(Command):
             self.name,
             help="Quantify global shape feature score using classification model",
             epilog=(
+                "The input label can be in npy (default) or csv format. "
+                "If csv, the first row is the header. "
+                "Unrecognized formats are parsed as npy with a warning. "
                 "Output field 'phi' is the signed distance to the "
                 "nearest admissible class in the probability simplex."
             ),
         )
         parser.add_argument(
-            "profiles",
+            "soft_labels",
             type=pathlib.Path,
-            help="h5 file path to profile data in 'ProfileData' structure.",
-        )
-        parser.add_argument(
-            "model",
-            type=pathlib.Path,
-            help="Path to trained classification model.",
+            help="csv file path of probabilistic classification labels.",
         )
         parser.add_config_argument(
             "--target-indices",
@@ -36,21 +33,9 @@ class GlobalFeaturesCommand(Command):
             help="List of indices of admissible classes from trained labels.",
         )
         parser.add_argument(
-            "--normalized",
-            action="store_true",
-            help=(
-                "If input profiles are already normalized, "
-                "setting this flag enhances performance."
-            ),
-        )
-        parser.add_argument(
-            "--batch-size",
-            type=int,
-            default=None,
-            help=(
-                "Batch size to load data. "
-                "If not passed, all data are loaded at once."
-            ),
+            "--label-format",
+            choices=["npy", "csv"],
+            help="Label file format. If not passed, parsed from file extension.",
         )
         parser.add_argument(
             "-o",
@@ -61,34 +46,44 @@ class GlobalFeaturesCommand(Command):
 
     def run(self, args):
         import csv
-        import pickle
+        import os
+
+        import numpy as np
 
         from heavyedge_features.api import global_deviation
 
         if args.target_indices is None:
             raise ValueError("--target-indices must be specified.")
 
+        label_ext = os.path.splitext(args.soft_labels)[1].lower().lstrip(".")
+        label_format = args.label_format or label_ext
+
         self.logger.info(f"Start processing {args.output}")
 
-        profiles = ProfileData(args.profiles)
-        with open(args.model, "rb") as f:
-            model = pickle.load(f)
+        if label_format == "csv":
+            with open(args.soft_labels, "r") as f:
+                reader = csv.reader(f)
+                # Burn first row as header
+                next(reader)
+                soft_labels = np.array([row[0] for row in reader])
+        else:
+            if label_format != "npy":
+                self.logger.warning(
+                    f"Unrecognized label format '{label_format}', parsing as npy."
+                )
+            soft_labels = np.load(args.soft_labels)
 
-        generator = global_deviation(
-            profiles,
+        values = global_deviation(
+            soft_labels,
             args.target_indices,
-            model,
-            normalize=not args.normalized,
-            batch_size=args.batch_size,
             logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
         )
 
         with open(args.output, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["phi"])
-            for batch in generator:
-                for value in batch:
-                    writer.writerow([value])
+            for value in values:
+                writer.writerow([value])
 
         self.logger.info(f"Saved {args.output}.")
 
@@ -100,6 +95,9 @@ class LocalFeaturesCommand(Command):
             self.name,
             help="Quantify local shape features",
             epilog=(
+                "The input label can be in npy (default) or csv format. "
+                "If csv, the first row is the header. "
+                "Unrecognized formats are parsed as npy with a warning. "
                 "Output field 'H' is the apparent edge superelevation. "
                 "Output field 'b' is the edge width."
             ),
@@ -110,9 +108,9 @@ class LocalFeaturesCommand(Command):
             help="h5 file path to profile data in 'ProfileData' structure.",
         )
         parser.add_argument(
-            "model",
+            "soft_labels",
             type=pathlib.Path,
-            help="Path to trained classification model.",
+            help="csv file path of probabilistic classification labels.",
         )
         parser.add_argument(
             "h_w",
@@ -136,15 +134,6 @@ class LocalFeaturesCommand(Command):
             type=int,
             nargs="+",
             help="List of indices of Type 3 classes from trained labels.",
-        )
-        parser.add_argument(
-            "--batch-size",
-            type=int,
-            default=None,
-            help=(
-                "Batch size to load data. "
-                "If not passed, all data are loaded at once."
-            ),
         )
         parser.add_argument(
             "-o",

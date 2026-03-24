@@ -98,7 +98,6 @@ def width_type2(x, Y, L, sigma):
         Length of profile before contact point in number of points.
     sigma : scalar
         Standard deviation of Gaussian filter for smoothing.
-        Using the same value as the one used for preprocessing is recommended.
 
     Returns
     -------
@@ -138,7 +137,6 @@ def width_type3(x, Y, L, sigma):
         Length of profile before contact point in number of points.
     sigma : scalar
         Standard deviation of Gaussian filter for smoothing.
-        Using the same value as the one used for preprocessing is recommended.
 
     Returns
     -------
