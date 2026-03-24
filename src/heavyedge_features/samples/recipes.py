@@ -3,8 +3,6 @@
 from heavyedge import get_sample_path as heavyedge_sample
 from heavyedge_classify.samples import get_sample_path as classify_sample
 
-from . import get_sample_path
-
 RECIPES = {
     "Profiles.h5": lambda path: [
         "heavyedge",
@@ -18,8 +16,7 @@ RECIPES = {
     "global-features.csv": lambda path: [
         "heavyedge",
         "features-global",
-        get_sample_path("Profiles.h5"),
-        classify_sample("model.pkl"),
+        classify_sample("labels-pred.npy"),
         "--target-indices",
         "0",
         "-o",
