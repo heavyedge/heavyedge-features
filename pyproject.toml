@@ -32,6 +32,7 @@ classifiers = [
 dependencies = [
     "heavyedge",
     "cvxpy",
+    "heavyedge-landmarks>=1.5.0",
 ]
 
 [project.urls]
@@ -49,6 +50,7 @@ doc = [
     "sphinx",
     "numpydoc",
     "pydata_sphinx_theme",
+    "matplotlib",
 ]
 dev = [
     "flake8",
