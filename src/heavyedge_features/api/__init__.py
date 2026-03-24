@@ -7,6 +7,7 @@ from ..iproj import signed_iproj
 
 __all__ = [
     "global_deviation",
+    "edge_height",
     "edge_width",
 ]
 
@@ -51,6 +52,37 @@ def global_deviation(
         values.append(value)
         logger(f"{i + 1}/{N}")
     return np.array(values)
+
+
+def edge_height(profiles, logger=lambda x: None):
+    """Dimensionless edge height of edge profiles.
+
+    Parameters
+    ----------
+    profiles : heavyedge.ProfileData
+        Open h5 file of profiles.
+    logger : callable, optional
+        Logger function which accepts a progress message string.
+
+    Returns
+    -------
+    heights : np.ndarray
+        Array containing edge height values for each profile.
+
+    Examples
+    --------
+    >>> from heavyedge import ProfileData
+    >>> from heavyedge_features.samples import get_sample_path as features_sample
+    >>> from heavyedge_features.api import edge_height
+    >>> edge_height(ProfileData(features_sample("Profiles.h5"))).shape
+    (75,)
+    """
+    N, _ = profiles.shape()
+    ret = []
+    for i, (Y, L, _) in enumerate(profiles):
+        ret.append(Y[:L].max() / Y[0])
+        logger(f"edge height ({i + 1}/{N})")
+    return np.array(ret)
 
 
 def edge_width(
@@ -114,6 +146,6 @@ def edge_width(
             width = width_type3(x, Y, L, sigma)
         else:
             width = width_type0(x, Y, L, wt)
-        logger(f"{i + 1}/{N}")
+        logger(f"edge width ({i + 1}/{N})")
         ret.append(width)
     return np.array(ret)

@@ -159,7 +159,7 @@ class LocalFeaturesCommand(Command):
         import numpy as np
         from heavyedge import ProfileData
 
-        from heavyedge_features.api import edge_width
+        from heavyedge_features.api import edge_height, edge_width
 
         if args.type1_indices is None:
             raise ValueError("--type1-indices must be specified.")
@@ -188,6 +188,10 @@ class LocalFeaturesCommand(Command):
 
         wet_thicknesses = np.load(args.h_w)
 
+        edge_heights = edge_height(
+            ProfileData(args.profiles),
+            logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
+        )
         edge_widths = edge_width(
             ProfileData(args.profiles),
             soft_labels.argmax(axis=1),
@@ -201,8 +205,8 @@ class LocalFeaturesCommand(Command):
 
         with open(args.output, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["b"])
-            for b in edge_widths:
-                writer.writerow([b])
+            writer.writerow(["H", "b"])
+            for H, b in zip(edge_heights, edge_widths):
+                writer.writerow([H, b])
 
         self.logger.info(f"Saved {args.output}.")
