@@ -23,8 +23,5 @@ jobs:
           pip install build
           python -m build
 
-      - name: publish to PyPI
-        run: |
-          pip install twine
-          pip install -U packaging
-          twine upload dist/* -u __token__ -p ${{ secrets.pypi_token }}
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
