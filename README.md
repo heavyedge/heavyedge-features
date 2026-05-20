@@ -1,5 +1,6 @@
 # HeavyEdge-Features
 
+[![HuggingFace](https://img.shields.io/badge/HuggingFace-Dataset-orange?logo=huggingface)](https://huggingface.co/datasets/jeesoo9595/heavyedge-features-v1)
 [![Supported Python Versions](https://img.shields.io/pypi/pyversions/heavyedge-features.svg)](https://pypi.python.org/pypi/heavyedge-features/)
 [![PyPI Version](https://img.shields.io/pypi/v/heavyedge-features.svg)](https://pypi.python.org/pypi/heavyedge-features/)
 [![License](https://img.shields.io/github/license/heavyedge/heavyedge-features)](https://github.com/heavyedge/heavyedge-features/blob/master/LICENSE)
