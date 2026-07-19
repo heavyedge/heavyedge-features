@@ -12,7 +12,7 @@ class GlobalFeaturesCommand(Command):
     def add_parser(self, main_parser):
         parser = main_parser.add_parser(
             self.name,
-            help="Quantify global shape feature score using classification model",
+            description="Quantify global shape feature score using classification model",
             epilog=(
                 "The input label can be in npy (default) or csv format. "
                 "If csv, the first row is the header. "
@@ -93,7 +93,7 @@ class LocalFeaturesCommand(Command):
     def add_parser(self, main_parser):
         parser = main_parser.add_parser(
             self.name,
-            help="Quantify local shape features",
+            description="Quantify local shape features",
             epilog=(
                 "The input label can be in npy (default) or csv format. "
                 "If csv, the first row is the header. "
