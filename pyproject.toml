@@ -74,4 +74,4 @@ doctest_optionflags = [
 addopts = "--ignore=doc --doctest-modules --import-mode=importlib"
 
 [project.entry-points."heavyedge.commands"]
-"Feature quantification" = "heavyedge_features.plugins.features"
+"Edge features" = "heavyedge_features.plugins.features"

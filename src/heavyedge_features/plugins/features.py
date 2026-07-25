@@ -2,17 +2,18 @@
 
 import pathlib
 
-from heavyedge.cli.command import Command, register_command
+from heavyedge.cli.command import Command, deprecate_command, register_command
 
 PLUGIN_ORDER = 2.0
 
 
+@deprecate_command("1.1", "heavyedge shape-features command")
 @register_command("features-global", "Quantify global shape features")
 class GlobalFeaturesCommand(Command):
     def add_parser(self, main_parser):
         parser = main_parser.add_parser(
             self.name,
-            description="Quantify global shape feature score using classification model",
+            description="Quantify global shape feature using classification model",
             epilog=(
                 "The input label can be in npy (default) or csv format. "
                 "If csv, the first row is the header. "
@@ -88,6 +89,7 @@ class GlobalFeaturesCommand(Command):
         self.logger.info(f"Saved {args.output}.")
 
 
+@deprecate_command("1.1", "heavyedge shape-features command")
 @register_command("features-local", "Quantify local shape features")
 class LocalFeaturesCommand(Command):
     def add_parser(self, main_parser):
@@ -210,3 +212,14 @@ class LocalFeaturesCommand(Command):
                 writer.writerow([H, b])
 
         self.logger.info(f"Saved {args.output}.")
+
+
+@register_command("shape-features", "Extract edge shape features")
+class ShapeFeaturesCommand(Command):
+    def add_parser(self, main_parser):
+        main_parser.add_parser(
+            self.name,
+        )
+
+    def run(self, args):
+        pass
