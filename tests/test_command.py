@@ -54,6 +54,8 @@ def test_shapefeatures_parallel(tmp_data_path, tmp_path):
             "0",
             "--n-jobs",
             "2",
+            "--n-chunks",
+            "4",
             "-o",
             out_path,
         ],

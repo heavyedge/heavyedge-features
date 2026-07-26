@@ -2,6 +2,7 @@
 
 import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from itertools import islice
 
 import numpy as np
 
@@ -59,10 +60,71 @@ def _resolve_max_workers(n_jobs, total):
     return min(requested or 1, max(total, 1))
 
 
+def _run_tasks(
+    function,
+    tasks,
+    total,
+    n_jobs,
+    n_chunks,
+    logger,
+):
+    if not isinstance(n_chunks, (int, np.integer)) or isinstance(n_chunks, bool):
+        raise TypeError("n_chunks must be an integer.")
+    if n_chunks < 1:
+        raise ValueError("n_chunks must be a positive integer.")
+
+    max_workers = _resolve_max_workers(n_jobs, min(total, n_chunks))
+    if total == 0:
+        return np.empty(0, dtype=float)
+
+    log_every = max(1, (total + 99) // 100)
+    values = np.empty(total, dtype=float)
+    tasks = iter(tasks)
+
+    if max_workers == 1:
+        completed = 0
+        for completed, task in enumerate(tasks, start=1):
+            if completed > total:
+                raise ValueError("Received more tasks than expected.")
+            values[completed - 1] = function(*task)
+            _log_progress(logger, completed, total, log_every)
+        if completed != total:
+            raise ValueError("Received fewer tasks than expected.")
+        return values
+
+    completed = 0
+    submitted = 0
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        while True:
+            chunk = list(islice(tasks, n_chunks))
+            if not chunk:
+                break
+            if submitted + len(chunk) > total:
+                raise ValueError("Received more tasks than expected.")
+
+            futures = {
+                executor.submit(function, *task): submitted + index
+                for index, task in enumerate(chunk)
+            }
+            for future in as_completed(futures):
+                values[futures[future]] = future.result()
+                completed += 1
+                _log_progress(logger, completed, total, log_every)
+
+            submitted += len(chunk)
+            del futures
+            del chunk
+
+    if submitted != total:
+        raise ValueError("Received fewer tasks than expected.")
+    return values
+
+
 def global_deviation(
     soft_labels,
     target_indices,
     n_jobs=1,
+    n_chunks=1024,
     logger=lambda x: None,
 ):
     """Compute global shape deviations using probabilistic classification labels.
@@ -79,6 +141,8 @@ def global_deviation(
     n_jobs : int, optional (default=1)
         Number of worker processes. ``1`` disables parallelization and ``-1``
         uses all available CPUs.
+    n_chunks : int, optional (default=1024)
+        Maximum number of profiles submitted to workers at once.
     logger : callable, optional
         Logger function which accepts a progress message string.
 
@@ -97,31 +161,23 @@ def global_deviation(
     (75,)
     """
     N, _ = soft_labels.shape
-    max_workers = _resolve_max_workers(n_jobs, N)
-    if N == 0:
-        return np.empty(0, dtype=float)
-
-    log_every = max(1, (N + 99) // 100)
-    if max_workers == 1:
-        values = []
-        for completed, p in enumerate(soft_labels, start=1):
-            values.append(_compute_global_deviation(p, target_indices))
-            _log_progress(logger, completed, N, log_every)
-        return np.asarray(values)
-
-    values = np.empty(N, dtype=float)
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(_compute_global_deviation, p, target_indices): index
-            for index, p in enumerate(soft_labels)
-        }
-        for completed, future in enumerate(as_completed(futures), start=1):
-            values[futures[future]] = future.result()
-            _log_progress(logger, completed, N, log_every)
-    return values
+    tasks = ((p, target_indices) for p in soft_labels)
+    return _run_tasks(
+        _compute_global_deviation,
+        tasks,
+        N,
+        n_jobs,
+        n_chunks,
+        logger,
+    )
 
 
-def edge_height(profiles, n_jobs=1, logger=lambda x: None):
+def edge_height(
+    profiles,
+    n_jobs=1,
+    n_chunks=1024,
+    logger=lambda x: None,
+):
     """Dimensionless edge height of edge profiles.
 
     Parameters
@@ -131,6 +187,8 @@ def edge_height(profiles, n_jobs=1, logger=lambda x: None):
     n_jobs : int, optional (default=1)
         Number of worker processes. ``1`` disables parallelization and ``-1``
         uses all available CPUs.
+    n_chunks : int, optional (default=1024)
+        Maximum number of profiles loaded and submitted to workers at once.
     logger : callable, optional
         Logger function which accepts a progress message string.
 
@@ -148,30 +206,15 @@ def edge_height(profiles, n_jobs=1, logger=lambda x: None):
     (75,)
     """
     N, _ = profiles.shape()
-    max_workers = _resolve_max_workers(n_jobs, N)
-    if N == 0:
-        return np.empty(0, dtype=float)
-
-    log_every = max(1, (N + 99) // 100)
     tasks = ((Y, L) for Y, L, _ in profiles)
-
-    if max_workers == 1:
-        values = []
-        for completed, task in enumerate(tasks, start=1):
-            values.append(_compute_edge_height(*task))
-            _log_progress(logger, completed, N, log_every)
-        return np.asarray(values)
-
-    values = np.empty(N, dtype=float)
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(_compute_edge_height, *task): index
-            for index, task in enumerate(tasks)
-        }
-        for completed, future in enumerate(as_completed(futures), start=1):
-            values[futures[future]] = future.result()
-            _log_progress(logger, completed, N, log_every)
-    return values
+    return _run_tasks(
+        _compute_edge_height,
+        tasks,
+        N,
+        n_jobs,
+        n_chunks,
+        logger,
+    )
 
 
 def edge_width(
@@ -183,6 +226,7 @@ def edge_width(
     type2_indices,
     type3_indices,
     n_jobs=1,
+    n_chunks=1024,
     logger=lambda x: None,
 ):
     """Detect edge with of profiles using profile data and classification labels.
@@ -203,6 +247,8 @@ def edge_width(
     n_jobs : int, optional (default=1)
         Number of worker processes. ``1`` disables parallelization and ``-1``
         uses all available CPUs.
+    n_chunks : int, optional (default=1024)
+        Maximum number of profiles loaded and submitted to workers at once.
     logger : callable, optional
         Logger function which accepts a progress message string.
 
@@ -227,15 +273,10 @@ def edge_width(
     """
     x = profiles.x()
     N, _ = profiles.shape()
-    max_workers = _resolve_max_workers(n_jobs, N)
     if len(hard_labels) != N or len(wet_thicknesses) != N:
         raise ValueError(
             "profiles, hard_labels, and wet_thicknesses must have equal lengths."
         )
-    if N == 0:
-        return np.empty(0, dtype=float)
-
-    log_every = max(1, (N + 99) // 100)
     tasks = (
         (
             x,
@@ -252,21 +293,11 @@ def edge_width(
             profiles, hard_labels, wet_thicknesses
         )
     )
-
-    if max_workers == 1:
-        values = []
-        for completed, task in enumerate(tasks, start=1):
-            values.append(_compute_edge_width(*task))
-            _log_progress(logger, completed, N, log_every)
-        return np.asarray(values)
-
-    values = np.empty(N, dtype=float)
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(_compute_edge_width, *task): index
-            for index, task in enumerate(tasks)
-        }
-        for completed, future in enumerate(as_completed(futures), start=1):
-            values[futures[future]] = future.result()
-            _log_progress(logger, completed, N, log_every)
-    return values
+    return _run_tasks(
+        _compute_edge_width,
+        tasks,
+        N,
+        n_jobs,
+        n_chunks,
+        logger,
+    )
