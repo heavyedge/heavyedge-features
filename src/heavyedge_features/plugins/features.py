@@ -310,6 +310,7 @@ class ShapeFeaturesCommand(Command):
         phis = global_deviation(
             soft_labels,
             args.target_indices,
+            args.n_jobs,
             logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
         )
         edge_heights = edge_height(

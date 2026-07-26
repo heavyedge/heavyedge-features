@@ -1,5 +1,8 @@
 """High-level Python runtime interface."""
 
+import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
+
 import numpy as np
 
 from ..edge_width import width_type0, width_type1, width_type2, width_type3
@@ -12,9 +15,20 @@ __all__ = [
 ]
 
 
+def _compute_global_deviation(p, target_indices):
+    value, _ = signed_iproj(p, target_indices)
+    return value
+
+
+def _log_global_deviation_progress(logger, completed, total, log_every):
+    if completed == total or completed % log_every == 0:
+        logger(f"{completed}/{total}")
+
+
 def global_deviation(
     soft_labels,
     target_indices,
+    n_jobs=1,
     logger=lambda x: None,
 ):
     """Compute global shape deviations using probabilistic classification labels.
@@ -28,6 +42,9 @@ def global_deviation(
         Probabilistic classification labels for the profiles.
     target_indices : list of int
         Indices of target classes to compute values for.
+    n_jobs : int, optional (default=1)
+        Number of worker processes. ``1`` disables parallelization and ``-1``
+        uses all available CPUs.
     logger : callable, optional
         Logger function which accepts a progress message string.
 
@@ -45,13 +62,35 @@ def global_deviation(
     >>> global_deviation(soft_labels, [0]).shape
     (75,)
     """
+    if not isinstance(n_jobs, (int, np.integer)) or isinstance(n_jobs, bool):
+        raise TypeError("n_jobs must be an integer.")
+    if n_jobs == 0 or n_jobs < -1:
+        raise ValueError("n_jobs must be -1 or a positive integer.")
+
     N, _ = soft_labels.shape
-    values = []
-    for i, p in enumerate(soft_labels):
-        value, _ = signed_iproj(p, target_indices)
-        values.append(value)
-        logger(f"{i + 1}/{N}")
-    return np.array(values)
+    if N == 0:
+        return np.empty(0, dtype=float)
+
+    log_every = max(1, (N + 99) // 100)
+    if n_jobs == 1:
+        values = []
+        for completed, p in enumerate(soft_labels, start=1):
+            values.append(_compute_global_deviation(p, target_indices))
+            _log_global_deviation_progress(logger, completed, N, log_every)
+        return np.asarray(values)
+
+    max_workers = os.cpu_count() if n_jobs == -1 else int(n_jobs)
+    max_workers = min(max_workers or 1, N)
+    values = np.empty(N, dtype=float)
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(_compute_global_deviation, p, target_indices): index
+            for index, p in enumerate(soft_labels)
+        }
+        for completed, future in enumerate(as_completed(futures), start=1):
+            values[futures[future]] = future.result()
+            _log_global_deviation_progress(logger, completed, N, log_every)
+    return values
 
 
 def edge_height(profiles, logger=lambda x: None):
