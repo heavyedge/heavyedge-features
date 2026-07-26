@@ -39,6 +39,12 @@ class GlobalFeaturesCommand(Command):
             help="Label file format. If not passed, parsed from file extension.",
         )
         parser.add_argument(
+            "--n-jobs",
+            type=int,
+            default=1,
+            help="Number of parallel jobs to run. Default is 1.",
+        )
+        parser.add_argument(
             "-o",
             "--output",
             type=pathlib.Path,
@@ -77,6 +83,7 @@ class GlobalFeaturesCommand(Command):
         values = global_deviation(
             soft_labels,
             args.target_indices,
+            n_jobs=args.n_jobs,
             logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
         )
 
@@ -148,6 +155,12 @@ class LocalFeaturesCommand(Command):
             help="Label file format. If not passed, parsed from file extension.",
         )
         parser.add_argument(
+            "--n-jobs",
+            type=int,
+            default=1,
+            help="Number of parallel jobs to run. Default is 1.",
+        )
+        parser.add_argument(
             "-o",
             "--output",
             type=pathlib.Path,
@@ -202,6 +215,7 @@ class LocalFeaturesCommand(Command):
             args.type1_indices,
             args.type2_indices,
             args.type3_indices,
+            n_jobs=args.n_jobs,
             logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
         )
 
@@ -310,7 +324,7 @@ class ShapeFeaturesCommand(Command):
         phis = global_deviation(
             soft_labels,
             args.target_indices,
-            args.n_jobs,
+            n_jobs=args.n_jobs,
             logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
         )
         edge_heights = edge_height(
@@ -325,6 +339,7 @@ class ShapeFeaturesCommand(Command):
             args.type1_indices,
             args.type2_indices,
             args.type3_indices,
+            n_jobs=args.n_jobs,
             logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
         )
 
