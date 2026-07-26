@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `shape-features` command is added to replace `features-global` and `features-local`.
 
+### Changed
+
+- `heavyedge-landmarks` package is no longer required.
+  Functions to locate landmarks are directly implemented.
+
 ### Deprecated
 
 - `features-global` command is deprecated. Use `shape-features` instead.
