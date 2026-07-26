@@ -205,6 +205,7 @@ class LocalFeaturesCommand(Command):
 
         edge_heights = edge_height(
             ProfileData(args.profiles),
+            n_jobs=args.n_jobs,
             logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
         )
         edge_widths = edge_width(
@@ -329,6 +330,7 @@ class ShapeFeaturesCommand(Command):
         )
         edge_heights = edge_height(
             ProfileData(args.profiles),
+            n_jobs=args.n_jobs,
             logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
         )
         edge_widths = edge_width(

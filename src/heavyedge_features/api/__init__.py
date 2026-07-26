@@ -20,6 +20,10 @@ def _compute_global_deviation(p, target_indices):
     return value
 
 
+def _compute_edge_height(Y, L):
+    return Y[:L].max() / Y[0]
+
+
 def _compute_edge_width(
     x,
     Y,
@@ -117,13 +121,16 @@ def global_deviation(
     return values
 
 
-def edge_height(profiles, logger=lambda x: None):
+def edge_height(profiles, n_jobs=1, logger=lambda x: None):
     """Dimensionless edge height of edge profiles.
 
     Parameters
     ----------
     profiles : heavyedge.ProfileData
         Open h5 file of profiles.
+    n_jobs : int, optional (default=1)
+        Number of worker processes. ``1`` disables parallelization and ``-1``
+        uses all available CPUs.
     logger : callable, optional
         Logger function which accepts a progress message string.
 
@@ -141,11 +148,30 @@ def edge_height(profiles, logger=lambda x: None):
     (75,)
     """
     N, _ = profiles.shape()
-    ret = []
-    for i, (Y, L, _) in enumerate(profiles):
-        ret.append(Y[:L].max() / Y[0])
-        logger(f"edge height ({i + 1}/{N})")
-    return np.array(ret)
+    max_workers = _resolve_max_workers(n_jobs, N)
+    if N == 0:
+        return np.empty(0, dtype=float)
+
+    log_every = max(1, (N + 99) // 100)
+    tasks = ((Y, L) for Y, L, _ in profiles)
+
+    if max_workers == 1:
+        values = []
+        for completed, task in enumerate(tasks, start=1):
+            values.append(_compute_edge_height(*task))
+            _log_progress(logger, completed, N, log_every)
+        return np.asarray(values)
+
+    values = np.empty(N, dtype=float)
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(_compute_edge_height, *task): index
+            for index, task in enumerate(tasks)
+        }
+        for completed, future in enumerate(as_completed(futures), start=1):
+            values[futures[future]] = future.result()
+            _log_progress(logger, completed, N, log_every)
+    return values
 
 
 def edge_width(
