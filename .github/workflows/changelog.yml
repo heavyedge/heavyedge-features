@@ -1,0 +1,67 @@
+name: Changelog
+
+on:
+  push:
+    branches:
+      - master
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  update-release-notes:
+    name: Update release notes from changelog
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the changelog source
+        uses: actions/checkout@v6
+        with:
+          ref: master
+          fetch-depth: 1
+
+      - name: Extract changelog sections
+        run: |
+          python3 .github/scripts/changelog.py --all > changelog-sections.json
+
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Update release notes
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const fs = require('node:fs');
+            const sections = JSON.parse(fs.readFileSync('changelog-sections.json', 'utf8'));
+            const normalizeVersion = (version) => version.replace(/^v/i, '');
+            const sectionsByVersion = new Map(
+              sections.map(({ version, body }) => [normalizeVersion(version), body]),
+            );
+            const releases = await github.paginate(github.rest.repos.listReleases, {
+              ...context.repo,
+              per_page: 100,
+            });
+
+            let updated = 0;
+            for (const release of releases) {
+              const body = sectionsByVersion.get(normalizeVersion(release.tag_name));
+              if (body === undefined) continue;
+
+              await github.rest.repos.updateRelease({
+                ...context.repo,
+                release_id: release.id,
+                body,
+              });
+              updated += 1;
+              core.info(`Updated release notes for ${release.tag_name} (release ${release.id}).`);
+            }
+
+            core.info(`Updated ${updated} release(s) from CHANGELOG.md.`);
