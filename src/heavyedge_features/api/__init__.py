@@ -75,35 +75,48 @@ def _run_tasks(
 
     max_workers = _resolve_max_workers(n_jobs, min(total, n_chunks))
     if total == 0:
-        return np.empty(0, dtype=float)
+        return
 
     log_every = max(1, (total + 99) // 100)
-    values = np.empty(total, dtype=float)
     tasks = iter(tasks)
-
-    if max_workers == 1:
-        completed = 0
-        for completed, task in enumerate(tasks, start=1):
-            if completed > total:
-                raise ValueError("Received more tasks than expected.")
-            values[completed - 1] = function(*task)
-            _log_progress(logger, completed, total, log_every)
-        if completed != total:
-            raise ValueError("Received fewer tasks than expected.")
-        return values
-
     completed = 0
     submitted = 0
-    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+
+    if max_workers == 1:
         while True:
+            # Do not advance the profile iterator beyond the current chunk.
             chunk = list(islice(tasks, n_chunks))
             if not chunk:
                 break
             if submitted + len(chunk) > total:
                 raise ValueError("Received more tasks than expected.")
 
+            values = np.empty(len(chunk), dtype=float)
+            for index, task in enumerate(chunk):
+                values[index] = function(*task)
+                completed += 1
+                _log_progress(logger, completed, total, log_every)
+
+            submitted += len(chunk)
+            del chunk
+            yield values
+
+        if submitted != total:
+            raise ValueError("Received fewer tasks than expected.")
+        return
+
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        while True:
+            # The next chunk is loaded only after every future below completes.
+            chunk = list(islice(tasks, n_chunks))
+            if not chunk:
+                break
+            if submitted + len(chunk) > total:
+                raise ValueError("Received more tasks than expected.")
+
+            values = np.empty(len(chunk), dtype=float)
             futures = {
-                executor.submit(function, *task): submitted + index
+                executor.submit(function, *task): index
                 for index, task in enumerate(chunk)
             }
             for future in as_completed(futures):
@@ -114,10 +127,10 @@ def _run_tasks(
             submitted += len(chunk)
             del futures
             del chunk
+            yield values
 
     if submitted != total:
         raise ValueError("Received fewer tasks than expected.")
-    return values
 
 
 def global_deviation(
@@ -146,10 +159,10 @@ def global_deviation(
     logger : callable, optional
         Logger function which accepts a progress message string.
 
-    Returns
-    -------
+    Yields
+    ------
     values : np.ndarray
-        Array containing global shape deviations for each profile.
+        Global shape deviations for one chunk of profiles.
 
     Examples
     --------
@@ -157,12 +170,12 @@ def global_deviation(
     >>> from heavyedge_classify.samples import get_sample_path
     >>> from heavyedge_features.api import global_deviation
     >>> soft_labels = np.load(get_sample_path("labels-pred.npy"))
-    >>> global_deviation(soft_labels, [0]).shape
+    >>> np.concatenate(list(global_deviation(soft_labels, [0]))).shape
     (75,)
     """
     N, _ = soft_labels.shape
     tasks = ((p, target_indices) for p in soft_labels)
-    return _run_tasks(
+    yield from _run_tasks(
         _compute_global_deviation,
         tasks,
         N,
@@ -192,22 +205,23 @@ def edge_height(
     logger : callable, optional
         Logger function which accepts a progress message string.
 
-    Returns
-    -------
+    Yields
+    ------
     heights : np.ndarray
-        Array containing edge height values for each profile.
+        Edge height values for one chunk of profiles.
 
     Examples
     --------
     >>> from heavyedge import ProfileData
     >>> from heavyedge_features.samples import get_sample_path as features_sample
     >>> from heavyedge_features.api import edge_height
-    >>> edge_height(ProfileData(features_sample("Profiles.h5"))).shape
+    >>> chunks = edge_height(ProfileData(features_sample("Profiles.h5")))
+    >>> np.concatenate(list(chunks)).shape
     (75,)
     """
     N, _ = profiles.shape()
     tasks = ((Y, L) for Y, L, _ in profiles)
-    return _run_tasks(
+    yield from _run_tasks(
         _compute_edge_height,
         tasks,
         N,
@@ -252,10 +266,10 @@ def edge_width(
     logger : callable, optional
         Logger function which accepts a progress message string.
 
-    Returns
-    -------
+    Yields
+    ------
     widths : np.ndarray
-        Array containing edge width values for each profile.
+        Edge width values for one chunk of profiles.
 
     Examples
     --------
@@ -268,7 +282,10 @@ def edge_width(
     >>> hard_labels = np.load(classify_sample("labels-pred.npy")).argmax(axis=1)
     >>> wet_thicknesses = np.full(hard_labels.shape, 0.25)
     >>> sigma = 32
-    >>> edge_width(profiles, hard_labels, wet_thicknesses, sigma, [0], [1], [2]).shape
+    >>> chunks = edge_width(
+    ...     profiles, hard_labels, wet_thicknesses, sigma, [0], [1], [2]
+    ... )
+    >>> np.concatenate(list(chunks)).shape
     (75,)
     """
     x = profiles.x()
@@ -293,7 +310,7 @@ def edge_width(
             profiles, hard_labels, wet_thicknesses
         )
     )
-    return _run_tasks(
+    yield from _run_tasks(
         _compute_edge_width,
         tasks,
         N,

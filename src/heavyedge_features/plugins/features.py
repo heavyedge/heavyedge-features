@@ -45,6 +45,12 @@ class GlobalFeaturesCommand(Command):
             help="Number of parallel jobs to run. Default is 1.",
         )
         parser.add_argument(
+            "--n-chunks",
+            type=int,
+            default=1024,
+            help="Maximum number of profiles processed at once. Default is 1024.",
+        )
+        parser.add_argument(
             "-o",
             "--output",
             type=pathlib.Path,
@@ -84,14 +90,15 @@ class GlobalFeaturesCommand(Command):
             soft_labels,
             args.target_indices,
             n_jobs=args.n_jobs,
+            n_chunks=args.n_chunks,
             logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
         )
 
         with open(args.output, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["phi"])
-            for value in values:
-                writer.writerow([value])
+            for chunk in values:
+                writer.writerows((value,) for value in chunk)
 
         self.logger.info(f"Saved {args.output}.")
 
@@ -161,6 +168,12 @@ class LocalFeaturesCommand(Command):
             help="Number of parallel jobs to run. Default is 1.",
         )
         parser.add_argument(
+            "--n-chunks",
+            type=int,
+            default=1024,
+            help="Maximum number of profiles processed at once. Default is 1024.",
+        )
+        parser.add_argument(
             "-o",
             "--output",
             type=pathlib.Path,
@@ -206,6 +219,7 @@ class LocalFeaturesCommand(Command):
         edge_heights = edge_height(
             ProfileData(args.profiles),
             n_jobs=args.n_jobs,
+            n_chunks=args.n_chunks,
             logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
         )
         edge_widths = edge_width(
@@ -217,14 +231,17 @@ class LocalFeaturesCommand(Command):
             args.type2_indices,
             args.type3_indices,
             n_jobs=args.n_jobs,
+            n_chunks=args.n_chunks,
             logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
         )
 
         with open(args.output, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["H", "b"])
-            for H, b in zip(edge_heights, edge_widths):
-                writer.writerow([H, b])
+            for height_chunk, width_chunk in zip(
+                edge_heights, edge_widths, strict=True
+            ):
+                writer.writerows(zip(height_chunk, width_chunk, strict=True))
 
         self.logger.info(f"Saved {args.output}.")
 
@@ -357,7 +374,16 @@ class ShapeFeaturesCommand(Command):
         with open(args.output, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["H", "b", "phi"])
-            for H, b, phi in zip(edge_heights, edge_widths, phis):
-                writer.writerow([H, b, phi])
+            for height_chunk, width_chunk, phi_chunk in zip(
+                edge_heights, edge_widths, phis, strict=True
+            ):
+                writer.writerows(
+                    zip(
+                        height_chunk,
+                        width_chunk,
+                        phi_chunk,
+                        strict=True,
+                    )
+                )
 
         self.logger.info(f"Saved {args.output}.")
