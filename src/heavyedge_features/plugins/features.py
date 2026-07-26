@@ -273,6 +273,12 @@ class ShapeFeaturesCommand(Command):
             help="List of indices of admissible classes from trained labels.",
         )
         parser.add_argument(
+            "--n-jobs",
+            type=int,
+            default=1,
+            help="Number of parallel jobs to run. Default is 1.",
+        )
+        parser.add_argument(
             "-o",
             "--output",
             type=pathlib.Path,
@@ -286,15 +292,6 @@ class ShapeFeaturesCommand(Command):
         from heavyedge import ProfileData
 
         from heavyedge_features.api import edge_height, edge_width, global_deviation
-
-        if args.type1_indices is None:
-            raise ValueError("--type1-indices must be specified.")
-        if args.type2_indices is None:
-            raise ValueError("--type2-indices must be specified.")
-        if args.type3_indices is None:
-            raise ValueError("--type3-indices must be specified.")
-        if args.target_indices is None:
-            raise ValueError("--target-indices must be specified.")
 
         self.logger.info(f"Start processing {args.output}")
 
