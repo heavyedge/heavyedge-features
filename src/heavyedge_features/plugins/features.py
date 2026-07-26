@@ -217,8 +217,65 @@ class LocalFeaturesCommand(Command):
 @register_command("shape-features", "Extract edge shape features")
 class ShapeFeaturesCommand(Command):
     def add_parser(self, main_parser):
-        main_parser.add_parser(
+        parser = main_parser.add_parser(
             self.name,
+            description="Extract edge shape features",
+            epilog=(
+                "Shape features consist of: "
+                "H (apparent edge superelevation), "
+                "b (edge width), "
+                "phi (signed information projection distance to admissible probability)"
+            ),
+        )
+        parser.add_argument(
+            "profiles",
+            type=pathlib.Path,
+            help="h5 file path to profile data in 'ProfileData' structure.",
+        )
+        parser.add_argument(
+            "h_w",
+            type=pathlib.Path,
+            help="Path to csv file containing wet thickness.",
+        )
+        parser.add_argument(
+            "class_probabilities",
+            type=pathlib.Path,
+            help="Path to csv file containing probabilistic classification labels.",
+        )
+        parser.add_config_argument(
+            "--sigma",
+            type=float,
+            help="Standard deviation of Gaussian kernel for smoothing.",
+        )
+        parser.add_config_argument(
+            "--type1-indices",
+            type=int,
+            nargs="+",
+            help="List of indices of Type 1 classes from trained labels.",
+        )
+        parser.add_config_argument(
+            "--type2-indices",
+            type=int,
+            nargs="+",
+            help="List of indices of Type 2 classes from trained labels.",
+        )
+        parser.add_config_argument(
+            "--type3-indices",
+            type=int,
+            nargs="+",
+            help="List of indices of Type 3 classes from trained labels.",
+        )
+        parser.add_config_argument(
+            "--target-indices",
+            type=int,
+            nargs="+",
+            help="List of indices of admissible classes from trained labels.",
+        )
+        parser.add_argument(
+            "-o",
+            "--output",
+            type=pathlib.Path,
+            help="Path to output csv file",
         )
 
     def run(self, args):
