@@ -1,9 +1,12 @@
 """Edge width by edge type."""
 
 import numpy as np
-from heavyedge_landmarks import (
+
+from .landmarks import (
     landmarks_type2,
     landmarks_type3,
+)
+from .plateau import (
     plateau_type2,
     plateau_type3,
 )
