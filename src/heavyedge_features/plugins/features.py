@@ -224,7 +224,8 @@ class ShapeFeaturesCommand(Command):
                 "Shape features consist of: "
                 "H (apparent edge superelevation), "
                 "b (edge width), "
-                "phi (signed information projection distance to admissible probability)"
+                "phi (signed information projection distance to "
+                "set of admissible class probabilities)"
             ),
         )
         parser.add_argument(
@@ -302,7 +303,12 @@ class ShapeFeaturesCommand(Command):
             # Burn first row as header
             next(reader)
             soft_labels = np.array([row for row in reader], dtype=float)
-        wet_thicknesses = np.load(args.h_w)
+
+        with open(args.h_w, "r") as f:
+            reader = csv.reader(f)
+            # Burn first row as header
+            next(reader)
+            (wet_thicknesses,) = np.array([row for row in reader], dtype=float).T
 
         phis = global_deviation(
             soft_labels,

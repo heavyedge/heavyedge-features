@@ -100,20 +100,22 @@ def tmp_data_path(tmp_path_factory):
         check=True,
     )
 
-    softlabels_shape = (N_PROFILES, 3)
-    softlabels = np.random.uniform(0, 1, softlabels_shape)
-    softlabels /= softlabels.sum(axis=1, keepdims=True)
-    label_npy_path = data_dir / "labels.npy"
-    np.save(label_npy_path, softlabels)
-    label_csv_path = data_dir / "labels.csv"
-    with open(label_csv_path, "w", newline="") as f:
+    wet_thicknesses = np.full((N_PROFILES,), 700)
+    wet_thickness_path = data_dir / "wet_thicknesses.csv"
+    with open(wet_thickness_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["wet_thickness"])
+        for wt in wet_thicknesses:
+            writer.writerow([wt])
+
+    prob_shape = (N_PROFILES, 3)
+    prob = np.random.uniform(0, 1, prob_shape)
+    prob /= prob.sum(axis=1, keepdims=True)
+    prob_path = data_dir / "labels.csv"
+    with open(prob_path, "w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["Type 1", "Type 2", "Type 3"])
-        for row in softlabels:
+        for row in prob:
             writer.writerow(row)
 
-    wet_thicknesses = np.full((N_PROFILES,), 700)
-    wet_thickness_path = data_dir / "wet_thicknesses.npy"
-    np.save(wet_thickness_path, wet_thicknesses)
-
-    return profile_path, (label_npy_path, label_csv_path), wet_thickness_path
+    return profile_path, wet_thickness_path, prob_path

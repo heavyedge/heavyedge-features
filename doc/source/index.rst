@@ -21,8 +21,7 @@ It can be invoked by:
 
 .. code-block:: bash
 
-   heavyedge features-global <args>
-   heavyedge features-local <args>
+   heavyedge shape-features <args>
 
 Refer to help message of each command for their arguments.
 
