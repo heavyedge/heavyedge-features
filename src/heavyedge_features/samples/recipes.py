@@ -1,5 +1,7 @@
 """Recipies to build sample data."""
 
+import csv
+
 import numpy as np
 from heavyedge import ProfileData
 from heavyedge import get_sample_path as heavyedge_sample
@@ -8,10 +10,25 @@ from heavyedge_classify.samples import get_sample_path as classify_sample
 from . import get_sample_path
 
 
-def save_wetthicknesses(path):
+def save_hw(path):
     N, _ = ProfileData(get_sample_path("Profiles.h5")).shape()
-    wet_thicknesses = np.full(N, 0.25)
-    np.save(path, wet_thicknesses)
+    h_w = np.full(N, 0.25)
+    with open(path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["wet_thickness"])
+        for wt in h_w:
+            writer.writerow([wt])
+
+
+def save_classprob(path):
+    # save npy as csv
+    prob = np.load(classify_sample("labels-pred.npy"))
+    _, C = prob.shape
+    with open(path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([f"prob_class_{c}" for c in range(C)])
+        for row in prob:
+            writer.writerow(row)
 
 
 RECIPES = {
@@ -24,22 +41,14 @@ RECIPES = {
         "-o",
         path,
     ],
-    "global-features.csv": lambda path: [
+    "wet_thickness.csv": lambda path: save_hw(path),
+    "class_probabilities.csv": lambda path: save_classprob(path),
+    "shape-features.csv": lambda path: [
         "heavyedge",
-        "features-global",
-        classify_sample("labels-pred.npy"),
-        "--target-indices",
-        "0",
-        "-o",
-        path,
-    ],
-    "wet_thickness.npy": lambda path: save_wetthicknesses(path),
-    "local-features.csv": lambda path: [
-        "heavyedge",
-        "features-local",
+        "shape-features",
         get_sample_path("Profiles.h5"),
-        classify_sample("labels-pred.npy"),
-        get_sample_path("wet_thickness.npy"),
+        get_sample_path("wet_thickness.csv"),
+        get_sample_path("class_probabilities.csv"),
         "--sigma",
         "32",
         "--type1-indices",
@@ -48,6 +57,8 @@ RECIPES = {
         "1",
         "--type3-indices",
         "2",
+        "--target-indices",
+        "0",
         "-o",
         path,
     ],
