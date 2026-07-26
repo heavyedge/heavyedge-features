@@ -279,4 +279,55 @@ class ShapeFeaturesCommand(Command):
         )
 
     def run(self, args):
-        pass
+        import csv
+
+        import numpy as np
+        from heavyedge import ProfileData
+
+        from heavyedge_features.api import edge_height, edge_width, global_deviation
+
+        if args.type1_indices is None:
+            raise ValueError("--type1-indices must be specified.")
+        if args.type2_indices is None:
+            raise ValueError("--type2-indices must be specified.")
+        if args.type3_indices is None:
+            raise ValueError("--type3-indices must be specified.")
+        if args.target_indices is None:
+            raise ValueError("--target-indices must be specified.")
+
+        self.logger.info(f"Start processing {args.output}")
+
+        with open(args.class_probabilities, "r") as f:
+            reader = csv.reader(f)
+            # Burn first row as header
+            next(reader)
+            soft_labels = np.array([row for row in reader], dtype=float)
+        wet_thicknesses = np.load(args.h_w)
+
+        phis = global_deviation(
+            soft_labels,
+            args.target_indices,
+            logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
+        )
+        edge_heights = edge_height(
+            ProfileData(args.profiles),
+            logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
+        )
+        edge_widths = edge_width(
+            ProfileData(args.profiles),
+            soft_labels.argmax(axis=1),
+            wet_thicknesses,
+            args.sigma,
+            args.type1_indices,
+            args.type2_indices,
+            args.type3_indices,
+            logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
+        )
+
+        with open(args.output, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["H", "b", "phi"])
+            for H, b, phi in zip(edge_heights, edge_widths, phis):
+                writer.writerow([H, b, phi])
+
+        self.logger.info(f"Saved {args.output}.")
