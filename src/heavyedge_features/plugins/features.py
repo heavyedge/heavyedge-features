@@ -326,12 +326,12 @@ class ShapeFeaturesCommand(Command):
             soft_labels,
             args.target_indices,
             n_jobs=args.n_jobs,
-            logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
+            logger=lambda msg: self.logger.info(f"{args.output} (phi) : {msg}"),
         )
         edge_heights = edge_height(
             ProfileData(args.profiles),
             n_jobs=args.n_jobs,
-            logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
+            logger=lambda msg: self.logger.info(f"{args.output} (H) : {msg}"),
         )
         edge_widths = edge_width(
             ProfileData(args.profiles),
@@ -342,7 +342,7 @@ class ShapeFeaturesCommand(Command):
             args.type2_indices,
             args.type3_indices,
             n_jobs=args.n_jobs,
-            logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
+            logger=lambda msg: self.logger.info(f"{args.output} (b) : {msg}"),
         )
 
         with open(args.output, "w", newline="") as f:
