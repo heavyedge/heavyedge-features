@@ -9,12 +9,11 @@ __all__ = [
 
 
 def _ols(Xi, Y):
-    XT_X_inv = np.linalg.inv(Xi.T @ Xi)
-    params = XT_X_inv @ (Xi.T @ Y)
+    params, _, _, _ = np.linalg.lstsq(Xi, Y, rcond=None)
     return params
 
 
-def _segreg(x, Y, psi0, tol=1e-5, maxiter=30):
+def _segreg(x, Y, psi0, tol=1e-5, maxiter=30, max_backtracks=50):
     r"""Segmented regression with one breakpoint.
 
     Parameters
@@ -26,63 +25,99 @@ def _segreg(x, Y, psi0, tol=1e-5, maxiter=30):
     tol : float, default=1e-5
         Convergence tolerance.
     maxiter : int, default=30
-        Force break after this iterations.
+        Maximum number of segmented-regression iterations.
+    max_backtracks : int, default=50
+        Maximum number of step halvings in each iteration.
 
     Returns
     -------
     params : (4,) ndarray
         Estimated parameters: b0, b1, b2, psi.
     reached_max : bool
-        Iteration is finished not by convergence but by reaching maximum iteration.
+        Whether the iteration stopped without convergence because it reached an
+        iteration limit or encountered a numerically degenerate fit.
     """
+    x = np.asarray(x, dtype=float)
+    Y = np.asarray(Y, dtype=float)
+    psi = float(psi0)
+
+    if x.ndim != 1 or Y.ndim != 1 or x.shape != Y.shape:
+        raise ValueError("x and Y must be one-dimensional arrays of equal length.")
+    if len(x) < 4:
+        raise ValueError("Segmented regression requires at least four data points.")
+    if not np.all(np.isfinite(x)) or not np.all(np.isfinite(Y)):
+        raise ValueError("x and Y must contain only finite values.")
+    if not np.all(np.diff(x) > 0):
+        raise ValueError("x must be strictly increasing.")
+    if not x[0] < psi < x[-1]:
+        raise ValueError("psi0 must lie strictly inside the x domain.")
+    if tol <= 0:
+        raise ValueError("tol must be positive.")
+    if maxiter < 1:
+        raise ValueError("maxiter must be positive.")
+    if max_backtracks < 1:
+        raise ValueError("max_backtracks must be positive.")
+
+    params = None
+    for _ in range(maxiter):
+        Xi = np.array(
+            [
+                np.ones_like(x),
+                x,
+                (x - psi) * np.heaviside(x - psi, 0),
+                -np.heaviside(x - psi, 0),
+            ]
+        ).T
+
+        b0, b1, b2, gamma = _ols(Xi, Y)
+        params = np.array([b0, b1, b2, psi])
+        RSS = np.sum((Y - _segreg_predict(x, b0, b1, b2, psi)) ** 2)
+
+        if not np.all(np.isfinite([b0, b1, b2, gamma, RSS])):
+            return params, True
+
+        b2_scale = max(1.0, abs(b0), abs(b1), abs(gamma))
+        if abs(b2) <= np.finfo(float).eps * b2_scale:
+            return params, True
+
+        full_step = gamma / b2
+        if not np.isfinite(full_step):
+            return params, True
+        if abs(full_step) <= tol:
+            return params, False
+
+        accepted = False
+        step_scale = 1.0
+        for _ in range(max_backtracks):
+            step = step_scale * full_step
+
+            if abs(step) <= tol or psi + step == psi:
+                return params, False
+
+            psi_new = psi + step
+            if x[0] < psi_new < x[-1]:
+                RSS_new = np.sum((Y - _segreg_predict(x, b0, b1, b2, psi_new)) ** 2)
+                if np.isfinite(RSS_new) and RSS_new < RSS:
+                    accepted = True
+                    break
+
+            step_scale /= 2
+
+        if not accepted:
+            return params, True
+
+        psi = psi_new
+
     Xi = np.array(
         [
             np.ones_like(x),
             x,
-            (x - psi0) * np.heaviside(x - psi0, 0),
-            -np.heaviside(x - psi0, 0),
+            (x - psi) * np.heaviside(x - psi, 0),
+            -np.heaviside(x - psi, 0),
         ]
     ).T
-
-    b0, b1, b2, gamma = _ols(Xi, Y)
-    RSS = np.sum((Y - _segreg_predict(x, b0, b1, b2, psi0)) ** 2)
-
-    psi_converged = False
-    for _ in range(maxiter):
-        RSS_new = RSS
-        lamda = 1
-        while True:
-            psi0_new = psi0 + lamda * gamma / b2
-            RSS_new = np.sum((Y - _segreg_predict(x, b0, b1, b2, psi0_new)) ** 2)
-            lamda /= 2
-
-            if (psi0_new <= x[0]) or (psi0_new >= x[-1]):
-                # exceeded domain; make step size smaller
-                continue
-            if RSS_new >= RSS:
-                # RSS not decreased; make step size smaller
-                continue
-            psi_converged = np.abs(psi0 - psi0_new) <= tol
-            if psi_converged:
-                break
-
-        if not psi_converged:
-            psi_converged = np.abs(psi0 - psi0_new) <= tol
-        if psi_converged:
-            psi0 = psi0_new
-            reached_max = False
-            break
-
-        psi0 = psi0_new
-        RSS = RSS_new
-        Xi[:, 2] = (x - psi0) * np.heaviside(x - psi0, 0)
-        Xi[:, 3] = -np.heaviside(x - psi0, 0)
-        b0, b1, b2, gamma = _ols(Xi, Y)
-    else:
-        reached_max = True
-
-    params = np.array([b0, b1, b2, psi0_new])
-    return params, reached_max
+    b0, b1, b2, _ = _ols(Xi, Y)
+    return np.array([b0, b1, b2, psi]), True
 
 
 def _segreg_predict(x, b0, b1, b2, psi):

@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - API functions now yield the chunks instead of returning the full result.
 
+### Fixed
+
+- Segmented regression now does not get stuck.
+
 ## [1.1.0a1] - 2026-07-26
 
 ### Added
