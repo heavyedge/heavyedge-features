@@ -2,17 +2,18 @@
 
 import pathlib
 
-from heavyedge.cli.command import Command, register_command
+from heavyedge.cli.command import Command, deprecate_command, register_command
 
 PLUGIN_ORDER = 2.0
 
 
+@deprecate_command("1.1", "heavyedge shape-features command")
 @register_command("features-global", "Quantify global shape features")
 class GlobalFeaturesCommand(Command):
     def add_parser(self, main_parser):
         parser = main_parser.add_parser(
             self.name,
-            description="Quantify global shape feature score using classification model",
+            description="Quantify global shape feature using classification model",
             epilog=(
                 "The input label can be in npy (default) or csv format. "
                 "If csv, the first row is the header. "
@@ -88,6 +89,7 @@ class GlobalFeaturesCommand(Command):
         self.logger.info(f"Saved {args.output}.")
 
 
+@deprecate_command("1.1", "heavyedge shape-features command")
 @register_command("features-local", "Quantify local shape features")
 class LocalFeaturesCommand(Command):
     def add_parser(self, main_parser):
@@ -208,5 +210,130 @@ class LocalFeaturesCommand(Command):
             writer.writerow(["H", "b"])
             for H, b in zip(edge_heights, edge_widths):
                 writer.writerow([H, b])
+
+        self.logger.info(f"Saved {args.output}.")
+
+
+@register_command("shape-features", "Extract edge shape features")
+class ShapeFeaturesCommand(Command):
+    def add_parser(self, main_parser):
+        parser = main_parser.add_parser(
+            self.name,
+            description="Extract edge shape features",
+            epilog=(
+                "Shape features consist of: "
+                "H (apparent edge superelevation), "
+                "b (edge width), "
+                "phi (signed information projection distance to "
+                "set of admissible class probabilities)"
+            ),
+        )
+        parser.add_argument(
+            "profiles",
+            type=pathlib.Path,
+            help="h5 file path to profile data in 'ProfileData' structure.",
+        )
+        parser.add_argument(
+            "h_w",
+            type=pathlib.Path,
+            help="Path to csv file containing wet thickness.",
+        )
+        parser.add_argument(
+            "class_probabilities",
+            type=pathlib.Path,
+            help="Path to csv file containing probabilistic classification labels.",
+        )
+        parser.add_config_argument(
+            "--sigma",
+            type=float,
+            help="Standard deviation of Gaussian kernel for smoothing.",
+        )
+        parser.add_config_argument(
+            "--type1-indices",
+            type=int,
+            nargs="+",
+            help="List of indices of Type 1 classes from trained labels.",
+        )
+        parser.add_config_argument(
+            "--type2-indices",
+            type=int,
+            nargs="+",
+            help="List of indices of Type 2 classes from trained labels.",
+        )
+        parser.add_config_argument(
+            "--type3-indices",
+            type=int,
+            nargs="+",
+            help="List of indices of Type 3 classes from trained labels.",
+        )
+        parser.add_config_argument(
+            "--target-indices",
+            type=int,
+            nargs="+",
+            help="List of indices of admissible classes from trained labels.",
+        )
+        parser.add_argument(
+            "-o",
+            "--output",
+            type=pathlib.Path,
+            help="Path to output csv file",
+        )
+
+    def run(self, args):
+        import csv
+
+        import numpy as np
+        from heavyedge import ProfileData
+
+        from heavyedge_features.api import edge_height, edge_width, global_deviation
+
+        if args.type1_indices is None:
+            raise ValueError("--type1-indices must be specified.")
+        if args.type2_indices is None:
+            raise ValueError("--type2-indices must be specified.")
+        if args.type3_indices is None:
+            raise ValueError("--type3-indices must be specified.")
+        if args.target_indices is None:
+            raise ValueError("--target-indices must be specified.")
+
+        self.logger.info(f"Start processing {args.output}")
+
+        with open(args.class_probabilities, "r") as f:
+            reader = csv.reader(f)
+            # Burn first row as header
+            next(reader)
+            soft_labels = np.array([row for row in reader], dtype=float)
+
+        with open(args.h_w, "r") as f:
+            reader = csv.reader(f)
+            # Burn first row as header
+            next(reader)
+            (wet_thicknesses,) = np.array([row for row in reader], dtype=float).T
+
+        phis = global_deviation(
+            soft_labels,
+            args.target_indices,
+            logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
+        )
+        edge_heights = edge_height(
+            ProfileData(args.profiles),
+            logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
+        )
+        edge_widths = edge_width(
+            ProfileData(args.profiles),
+            soft_labels.argmax(axis=1),
+            wet_thicknesses,
+            args.sigma,
+            args.type1_indices,
+            args.type2_indices,
+            args.type3_indices,
+            logger=lambda msg: self.logger.info(f"{args.output} : {msg}"),
+        )
+
+        with open(args.output, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["H", "b", "phi"])
+            for H, b, phi in zip(edge_heights, edge_widths, phis):
+                writer.writerow([H, b, phi])
 
         self.logger.info(f"Saved {args.output}.")
