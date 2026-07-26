@@ -49,6 +49,12 @@ Runtime API
 Low-level API
 -------------
 
+.. automodule:: heavyedge_features.landmarks
+    :members:
+
+.. automodule:: heavyedge_features.plateau
+    :members:
+
 .. automodule:: heavyedge_features.iproj
     :members:
 
