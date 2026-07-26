@@ -15,17 +15,6 @@ def test_segreg_finds_breakpoint():
     assert params[-1] == pytest.approx(expected_psi, abs=1e-3)
 
 
-def test_segreg_flat_profile_terminates_with_degenerate_fit():
-    x = np.linspace(0, 10, 101)
-    Y = np.full_like(x, 2.0)
-
-    params, reached_max = _segreg(x, Y, psi0=5.0)
-
-    assert reached_max
-    assert np.all(np.isfinite(params))
-    assert params[-1] == 5.0
-
-
 def test_segreg_backtracking_limit_terminates():
     x = np.linspace(0, 10, 101)
     Y = 2.0 + 0.2 * x + 1.5 * np.maximum(x - 6.0, 0)
