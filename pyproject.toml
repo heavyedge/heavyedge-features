@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "heavyedge-features"
-version = "1.1.0a2"
+version = "1.1.0a3"
 authors = [
     {name = "Jisoo Song", email = "jeesoo9595@snu.ac.kr"}
 ]
@@ -33,7 +33,6 @@ dependencies = [
     "heavyedge",
     "numpy",
     "scipy",
-    "cvxpy",
 ]
 
 [project.urls]

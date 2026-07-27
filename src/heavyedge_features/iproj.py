@@ -1,6 +1,5 @@
 """Information projection to allowed classes."""
 
-import cvxpy as cp
 import numpy as np
 
 __all__ = [
@@ -74,17 +73,39 @@ def _class_dist(p, i):
 
 
 def _class_dist_ij(p, i, j):
-    K = len(p)
-    q = cp.Variable(K, nonneg=True)
-    constraints = [cp.sum(q) == 1]
+    """Project ``p`` onto ``q[i] == q[j] >= q[k]`` for every other ``k``.
 
-    # Constraints: q[i] == q[j], q[i] >= q[other]
-    for k in range(K):
-        if k == i:
-            continue
-        elif k == j:
-            constraints.append(q[i] == q[k])
-        else:
-            constraints.append(q[i] >= q[k])
-    objective = cp.Minimize(cp.sum(cp.kl_div(q, p)))
-    return cp.Problem(objective, constraints).solve(), q.value
+    The KL projection preserves the relative probabilities of unconstrained
+    classes.  Classes whose probabilities would exceed the tied maximum are
+    pooled with ``i`` and ``j``.  Their common unnormalised probability is the
+    geometric mean of the probabilities in the pool.
+    """
+    log_p = np.log(p)
+    pooled = [i, j]
+
+    # Add possible constraint violators from largest to smallest.  Adding them
+    # all at once is incorrect: the geometric mean can rise above a smaller
+    # candidate after a larger candidate has joined the pool.
+    candidates = sorted(
+        (k for k in range(len(p)) if k != i and k != j),
+        key=log_p.__getitem__,
+        reverse=True,
+    )
+    log_geometric_mean = np.mean(log_p[pooled])
+    for k in candidates:
+        if log_p[k] <= log_geometric_mean:
+            break
+        pooled.append(k)
+        log_geometric_mean = np.mean(log_p[pooled])
+
+    # Before normalisation, pooled classes have the same geometric-mean
+    # probability and all other classes retain their original probabilities.
+    log_q = log_p.copy()
+    log_q[pooled] = log_geometric_mean
+    log_normalizer = np.logaddexp.reduce(log_q)
+    log_q -= log_normalizer
+    q = np.exp(log_q)
+
+    # The log-ratios inside the pool cancel, so KL(q || p) = -log(Z).
+    distance = np.maximum(0.0, -log_normalizer)
+    return distance, q
