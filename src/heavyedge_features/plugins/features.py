@@ -257,7 +257,9 @@ class ShapeFeaturesCommand(Command):
                 "H (apparent edge superelevation), "
                 "b (edge width), "
                 "phi (signed information projection distance to "
-                "set of admissible class probabilities)"
+                "a set of admissible class probabilities),"
+                "phi_i (signed information projection distance to "
+                "a set of individual argmax class probabilities),"
             ),
         )
         parser.add_argument(
@@ -352,6 +354,19 @@ class ShapeFeaturesCommand(Command):
             n_chunks=args.n_chunks,
             logger=lambda msg: self.logger.info(f"{args.output} (phi) : {msg}"),
         )
+
+        K = soft_labels.shape[1]
+        phi_is = []
+        for k in range(K):
+            phi_i = global_deviation(
+                soft_labels,
+                [k],
+                n_jobs=args.n_jobs,
+                n_chunks=args.n_chunks,
+                logger=lambda msg: self.logger.info(f"{args.output} (phi_{k}) : {msg}"),
+            )
+            phi_is.append(phi_i)
+
         edge_heights = edge_height(
             ProfileData(args.profiles),
             n_jobs=args.n_jobs,
@@ -373,15 +388,16 @@ class ShapeFeaturesCommand(Command):
 
         with open(args.output, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["H", "b", "phi"])
-            for height_chunk, width_chunk, phi_chunk in zip(
-                edge_heights, edge_widths, phis, strict=True
+            writer.writerow(["H", "b", "phi"] + [f"phi_{k}" for k in range(K)])
+            for height_chunk, width_chunk, phi_chunk, *phi_i_chunks in zip(
+                edge_heights, edge_widths, phis, *phi_is, strict=True
             ):
                 writer.writerows(
                     zip(
                         height_chunk,
                         width_chunk,
                         phi_chunk,
+                        *phi_i_chunks,
                         strict=True,
                     )
                 )
