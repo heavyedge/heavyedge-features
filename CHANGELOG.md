@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0dev0] - 2026-08-17
+
+### Added
+
+- `shape-features` command now quantifies `phi_i` values, which are signed information projection distance to each set of class probability whose argmax is the class `i`.
+
 ## [1.1.0] - 2026-08-17
 
 ### Added
